@@ -56,6 +56,8 @@ Never train on FatakForecast's own predicted `11-minute` values. They are the ba
 
 ## Hosting architecture
 
-The current backend contains a long-running railway monitoring loop. Keep it on a hosting platform that supports a continuously running Node process. Do not move this monitor into a request-only function architecture without redesigning the collector.
+FatakForecast uses on-demand RailRadar fetching. No RailRadar requests are made while the application has no active users. When the application is open, the frontend requests forecasts through the backend using quota-aware caching and adaptive refresh intervals.
+
+The architecture is fully compatible with free/sleeping hosting platforms (e.g., Render, Koyeb) and does not require a permanently running background collector loop.
 
 Persistent production storage should eventually move from JSON files to PostgreSQL or another durable database. The current JSON storage is suitable for the initial observation-collection phase, but not for a large long-term dataset.

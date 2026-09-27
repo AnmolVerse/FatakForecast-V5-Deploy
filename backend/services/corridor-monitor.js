@@ -1017,7 +1017,7 @@ if (trainNotStarted) {
     }
 
     let delayedDepartureMs = departureDate.getTime();
-    if (!explicitDeparture && Number.isFinite(delayMinutes) && delayMinutes > 0) {
+    if (!explicitDeparture && Number.isFinite(delayMinutes) && delayMinutes !== 0) {
         delayedDepartureMs += delayMinutes * 60000;
     }
 
@@ -1027,24 +1027,44 @@ if (trainNotStarted) {
     const passageTimeMs = departureMs + (transitMinutes * 60000);
     const etaMinutes = Math.max(0, (passageTimeMs - Date.now()) / 60000);
 
+    const scheduledPassageMs = departureDate.getTime() + (transitMinutes * 60000);
+    const scheduledPassageTime = new Date(scheduledPassageMs).toISOString();
+
+    const diffMinutes = (passageTimeMs - scheduledPassageMs) / 60000;
+    let earlyLateStatus = "ON_TIME";
+    if (diffMinutes < -1.5) earlyLateStatus = "EARLY";
+    else if (diffMinutes > 1.5) earlyLateStatus = "DELAYED";
+
     crossing.etaMinutes = Number(etaMinutes.toFixed(1));
     crossing.estimatedPassageTime = new Date(passageTimeMs).toISOString();
+    crossing.scheduledPassageTime = scheduledPassageTime;
+    crossing.earlyLateStatus = earlyLateStatus;
+    crossing.earlyLateMinutes = Math.round(diffMinutes * 10) / 10;
     crossing.etaMethod = "departure-anchor";
-    crossing.etaConfidence = delayMinutes > 0 ? "delayed-departure-anchor" : "scheduled-departure";
-    crossing.etaSource = delayMinutes > 0
-        ? `Station delayed departure anchor (+${delayMinutes}m delay, ${new Date(departureMs).toLocaleTimeString()})`
-        : `Station departure anchor (${new Date(departureMs).toLocaleTimeString()})`;
+    crossing.etaConfidence = delayMinutes < 0 ? "early-departure-anchor" : (delayMinutes > 0 ? "delayed-departure-anchor" : "scheduled-departure");
+    crossing.etaSource = delayMinutes < 0
+        ? `Station early departure anchor (${delayMinutes}m early, ${new Date(departureMs).toLocaleTimeString()})`
+        : (delayMinutes > 0
+            ? `Station delayed departure anchor (+${delayMinutes}m delay, ${new Date(departureMs).toLocaleTimeString()})`
+            : `Station departure anchor (${new Date(departureMs).toLocaleTimeString()})`);
     crossing.etaSpeedKmph = transitSpeedKmph;
     crossing.positionFresh = true;
     crossing.livePositionStale = false;
     crossing.trainNotStarted = true;
     crossing.delayMinutes = Number.isFinite(delayMinutes) ? delayMinutes : 0;
     crossing.source = explicitDeparture || live?.route?.[0]?.actualDeparture ? "ACTUAL_DEPARTURE" : "SCHEDULE_ESTIMATE";
-    crossing.confidence = delayMinutes > 0 ? "MEDIUM" : "HIGH";
+    crossing.confidence = delayMinutes !== 0 ? "MEDIUM" : "HIGH";
     crossing.movementState = "STATION_STOP";
     crossing.stopType = "KNOWN_STATION_STOP";
     crossing.telemetryFreshness = "FRESH";
     crossing.telemetryAgeMinutes = 0;
+
+    if (earlyLateStatus === "EARLY") {
+        const gateClose = new Date(passageTimeMs - 11 * 60000);
+        const gateOpen = new Date(passageTimeMs + 1 * 60000);
+        const trainNum = live?.trainNumber || live?.train_number || live?.trainNo || "UNKNOWN";
+        console.log(`[EARLY-TRAIN] Train ${trainNum}: Live ETA ${new Date(passageTimeMs).toLocaleTimeString()} (${Math.abs(Math.round(diffMinutes))} min early vs scheduled ${new Date(scheduledPassageMs).toLocaleTimeString()}). Crossing ${crossing.name || crossing.id}: Passage=${new Date(passageTimeMs).toLocaleTimeString()} GateClose=${gateClose.toLocaleTimeString()} GateOpen=${gateOpen.toLocaleTimeString()} (Confidence: ${crossing.confidence})`);
+    }
 
     return crossing;
 }
@@ -1190,6 +1210,38 @@ if (trainNotStarted) {
             crossing.trainNotStarted =
                 trainNotStarted;
 
+            const delayMinutes = Number(
+                live?.delayMinutes ??
+                live?.delay_minutes ??
+                live?.delay ??
+                live?.currentLocation?.delayMinutes ??
+                0
+            );
+            const passageTimeMs = passageTime.getTime();
+            let scheduledPassageMs = null;
+            if (Number.isFinite(delayMinutes) && delayMinutes !== 0) {
+                scheduledPassageMs = passageTimeMs - delayMinutes * 60000;
+            }
+            const scheduledPassageTime = scheduledPassageMs ? new Date(scheduledPassageMs).toISOString() : null;
+            let earlyLateStatus = "ON_TIME";
+            let diffMinutes = 0;
+            if (scheduledPassageMs) {
+                diffMinutes = (passageTimeMs - scheduledPassageMs) / 60000;
+                if (diffMinutes < -1.5) earlyLateStatus = "EARLY";
+                else if (diffMinutes > 1.5) earlyLateStatus = "DELAYED";
+            }
+
+            crossing.scheduledPassageTime = scheduledPassageTime;
+            crossing.earlyLateStatus = earlyLateStatus;
+            crossing.earlyLateMinutes = Math.round(diffMinutes * 10) / 10;
+            crossing.delayMinutes = Number.isFinite(delayMinutes) ? delayMinutes : 0;
+
+            if (earlyLateStatus === "EARLY") {
+                const gateClose = new Date(passageTimeMs - 11 * 60000);
+                const gateOpen = new Date(passageTimeMs + 1 * 60000);
+                const trainNum = live?.trainNumber || live?.train_number || live?.trainNo || "UNKNOWN";
+                console.log(`[EARLY-TRAIN] Train ${trainNum}: Live ETA ${new Date(passageTimeMs).toLocaleTimeString()} (${Math.abs(Math.round(diffMinutes))} min early vs scheduled ${new Date(scheduledPassageMs).toLocaleTimeString()}). Crossing ${crossing.name || crossing.id}: Passage=${new Date(passageTimeMs).toLocaleTimeString()} GateClose=${gateClose.toLocaleTimeString()} GateOpen=${gateOpen.toLocaleTimeString()} (Confidence: ${crossing.confidence})`);
+            }
 
             return crossing;
         }

@@ -456,6 +456,33 @@ function buildUnifiedSnapshot({
             const trainName = cand.train_name || cand.trainName || "Express Train";
             const direction = cand.direction || "forward";
 
+            const candDelay = cand.delay_minutes != null
+                ? cand.delay_minutes
+                : (cand.delayMinutes != null
+                    ? cand.delayMinutes
+                    : (cand.analysis?.delayMinutes != null
+                        ? cand.analysis.delayMinutes
+                        : null));
+            const delayMinutes = (candDelay != null && Number.isFinite(Number(candDelay))) ? Number(candDelay) : 0;
+            const delayFormatted = delayMinutes > 0
+                ? `+${Math.round(delayMinutes)} min`
+                : (delayMinutes < 0 ? `${Math.round(delayMinutes)} min` : null);
+
+            const scheduledPassageTime = cand.scheduledPassageTime || cand.scheduled_passage_time || (
+                (cand.estimated_passage_time || cand.estimatedPassageTime)
+                    ? new Date(passageTime.getTime() - delayMinutes * 60000).toISOString()
+                    : null
+            );
+            let earlyLateStatus = cand.earlyLateStatus || "ON_TIME";
+            let earlyLateMinutes = cand.earlyLateMinutes;
+            if (earlyLateMinutes == null && (cand.estimated_passage_time || cand.estimatedPassageTime) && scheduledPassageTime) {
+                const diff = (passageTime.getTime() - new Date(scheduledPassageTime).getTime()) / 60000;
+                earlyLateMinutes = Math.round(diff * 10) / 10;
+                if (diff < -1.5) earlyLateStatus = "EARLY";
+                else if (diff > 1.5) earlyLateStatus = "DELAYED";
+                else earlyLateStatus = "ON_TIME";
+            }
+
             return {
                 forecastWindow: "extended",
                 status: "EXTENDED OUTLOOK",
@@ -466,6 +493,11 @@ function buildUnifiedSnapshot({
                 direction,
                 etaMinutes: Number(etaMinutes.toFixed(1)),
                 estimatedPassageTime: passageTime.toISOString(),
+                scheduledPassageTime,
+                earlyLateStatus,
+                earlyLateMinutes,
+                delayMinutes: Math.round(delayMinutes),
+                delayFormatted,
                 predictedGateCloseTime: cand.predicted_gate_close_earliest || new Date(passageTime.getTime() - TIMING_CONFIG.TIMELINE_CONFIG.LIKELY_CLOSURE_OFFSET_MINUTES * 60000).toISOString(),
                 predictedGateOpenTime: cand.predicted_gate_open_latest || new Date(passageTime.getTime() + TIMING_CONFIG.TIMELINE_CONFIG.LIKELY_REOPEN_OFFSET_MINUTES * 60000).toISOString(),
                 confidence: cand.confidence || (cand.stale ? "DEGRADED" : "SCHEDULE_ESTIMATE"),
@@ -658,7 +690,24 @@ function buildUnifiedSnapshot({
                         ? cand.analysis.delayMinutes
                         : null));
             const delayMinutes = (candDelay != null && Number.isFinite(Number(candDelay))) ? Number(candDelay) : 0;
-            const delayFormatted = delayMinutes > 0 ? `+${Math.round(delayMinutes)} min` : null;
+            const delayFormatted = delayMinutes > 0
+                ? `+${Math.round(delayMinutes)} min`
+                : (delayMinutes < 0 ? `${Math.round(delayMinutes)} min` : null);
+
+            const scheduledPassageTime = cand.scheduledPassageTime || cand.scheduled_passage_time || (
+                (cand.estimated_passage_time || cand.estimatedPassageTime)
+                    ? new Date(passageTime.getTime() - delayMinutes * 60000).toISOString()
+                    : null
+            );
+            let earlyLateStatus = cand.earlyLateStatus || "ON_TIME";
+            let earlyLateMinutes = cand.earlyLateMinutes;
+            if (earlyLateMinutes == null && (cand.estimated_passage_time || cand.estimatedPassageTime) && scheduledPassageTime) {
+                const diff = (passageTime.getTime() - new Date(scheduledPassageTime).getTime()) / 60000;
+                earlyLateMinutes = Math.round(diff * 10) / 10;
+                if (diff < -1.5) earlyLateStatus = "EARLY";
+                else if (diff > 1.5) earlyLateStatus = "DELAYED";
+                else earlyLateStatus = "ON_TIME";
+            }
 
             const etaMethod = cand.eta_calculation_method 
                 || cand.etaCalculationMethod 
@@ -677,6 +726,9 @@ function buildUnifiedSnapshot({
                 speedKmph: cand.speed_kmh != null ? cand.speed_kmh : (cand.speedKmph != null ? cand.speedKmph : null),
                 etaMinutes: Number(etaMinutes.toFixed(1)),
                 estimatedPassageTime: passageTime.toISOString(),
+                scheduledPassageTime,
+                earlyLateStatus,
+                earlyLateMinutes,
                 predictedGateCloseTime: standardCloseTime,
                 predictedGateOpenTime: standardOpenTime,
                 isContinuousClosure,
@@ -686,7 +738,7 @@ function buildUnifiedSnapshot({
                 confidence: cand.confidence || gateConfidence,
                 etaConfidence: cand.confidence || etaConfidence,
                 gateConfidence,
-                delayMinutes: delayMinutes > 0 ? Math.round(delayMinutes) : 0,
+                delayMinutes: Math.round(delayMinutes),
                 delayFormatted,
                 etaMethod,
                 gateModelMethod,
@@ -745,7 +797,11 @@ function buildUnifiedSnapshot({
                 || primaryCandidate.etaCalculationMethod 
                 || primaryCandidate.analysis?.etaMethod 
                 || "route-telemetry",
-            dataFreshness: snapshotFreshness
+            dataFreshness: snapshotFreshness,
+            scheduledPassageTime: primaryItem?.scheduledPassageTime || null,
+            earlyLateStatus: primaryItem?.earlyLateStatus || "ON_TIME",
+            earlyLateMinutes: primaryItem?.earlyLateMinutes != null ? primaryItem.earlyLateMinutes : 0,
+            confidenceSource: primaryCandidate.source || primaryItem?.source || "RECENT_TELEMETRY"
         } : null;
 
         // Switch diagnostics per Requirement 9
@@ -848,6 +904,9 @@ function buildUnifiedSnapshot({
             gateConfidence: primaryItem ? primaryItem.gateConfidence : "initial-estimate",
             delayMinutes: primaryItem ? primaryItem.delayMinutes : 0,
             delayFormatted: primaryItem ? primaryItem.delayFormatted : null,
+            scheduledPassageTime: primaryItem ? primaryItem.scheduledPassageTime : null,
+            earlyLateStatus: primaryItem ? primaryItem.earlyLateStatus : null,
+            earlyLateMinutes: primaryItem ? primaryItem.earlyLateMinutes : null,
             predictionMethod: primaryItem ? primaryItem.gateModelMethod : "11-min baseline",
             dataQuality: primaryItem ? {
                 source: primaryItem.source || "RECENT_TELEMETRY",

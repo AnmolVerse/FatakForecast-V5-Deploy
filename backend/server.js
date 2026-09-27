@@ -27,6 +27,10 @@ const {
 } = require("./services/corridor-engine");
 
 const {
+    getOrFetchForecast
+} = require("./services/on-demand-forecast");
+
+const {
     recordGateObservation
 } = require("./services/gate-observer");
 
@@ -277,17 +281,17 @@ async function handleRequest(req, res) {
     }
 
     // --------------------------------------------------------
-    // API: COMPLETE UNIFIED FORECAST
+    // API: COMPLETE UNIFIED FORECAST (On-Demand User Triggered)
     // --------------------------------------------------------
     if (pathname === "/api/forecast") {
-        const snapshot = getActiveSnapshot();
+        const forceRefresh = parsedUrl.searchParams.get("refresh") === "true";
+        const result = await getOrFetchForecast({ forceRefresh });
+        const snapshot = result.snapshot;
         const forecasts = V1_CROSSINGS.map(c => snapshot.crossings[c.id]);
 
-        // If cycle is running and current snapshot is UNAVAILABLE, communicate CONNECTING state
-        const isConnecting = isCycleRunning && (snapshot.freshness === "UNAVAILABLE" || !snapshot.liveDataTimestamp);
-        const freshness = isConnecting ? "CONNECTING" : snapshot.freshness;
+        const freshness = snapshot.freshness;
         const dataFreshness = snapshot.dataFreshness || (freshness === "LIVE_FRESH" ? "LIVE" : freshness);
-        const engineStatus = isConnecting ? "CYCLE_IN_PROGRESS" : snapshot.engineStatus;
+        const engineStatus = snapshot.engineStatus;
 
         return sendJson(res, 200, {
             success: true,
@@ -301,7 +305,14 @@ async function handleRequest(req, res) {
             freshness,
             dataFreshness,
             engineStatus,
-            isCycleRunning,
+            cacheHit: result.cacheHit,
+            deduplicated: result.deduplicated,
+            cacheAgeSeconds: result.cacheAgeSeconds,
+            cacheTtlSeconds: result.cacheTtlSeconds,
+            refreshIntervalMs: result.refreshIntervalMs,
+            isTrainApproaching: result.isTrainApproaching,
+            requestsMade: result.requestsMade || 0,
+            isCycleRunning: false,
             forecastHorizonMinutes: snapshot.forecastHorizonMinutes,
             extendedHorizonMinutes: snapshot.extendedHorizonMinutes || 120,
             lastTrainPassed: snapshot.lastTrainPassed || null,
@@ -316,7 +327,9 @@ async function handleRequest(req, res) {
     const singleMatch = pathname.match(/^\/api\/crossings?\/([^/]+)$/);
     if (singleMatch) {
         const crossingId = decodeURIComponent(singleMatch[1]);
-        const snapshot = getActiveSnapshot();
+        const forceRefresh = parsedUrl.searchParams.get("refresh") === "true";
+        const result = await getOrFetchForecast({ forceRefresh });
+        const snapshot = result.snapshot;
         const crossingForecast = snapshot.crossings[crossingId];
 
         if (!crossingForecast) {
@@ -331,6 +344,10 @@ async function handleRequest(req, res) {
             snapshotId: snapshot.snapshotId,
             updatedAt: snapshot.generatedAt,
             freshness: snapshot.freshness,
+            cacheHit: result.cacheHit,
+            cacheAgeSeconds: result.cacheAgeSeconds,
+            refreshIntervalMs: result.refreshIntervalMs,
+            isTrainApproaching: result.isTrainApproaching,
             ...crossingForecast
         });
     }
@@ -446,24 +463,9 @@ async function runScheduledCycle() {
 }
 
 function startBackgroundMonitor() {
-    if (process.env.DISABLE_AUTO_MONITOR === "true") {
-        console.log("ℹ️ Background monitor disabled by environment flag.");
-        return;
-    }
-
-    const intervalMinutes = process.env.CORRIDOR_POLL_INTERVAL_MINUTES
-        ? parseFloat(process.env.CORRIDOR_POLL_INTERVAL_MINUTES)
-        : 2;
-
-    const intervalMs = Math.max(1, intervalMinutes) * 60 * 1000;
-    console.log(`⏱️ Autonomous corridor monitor started (interval: ${intervalMinutes}m / ${intervalMs}ms).`);
-
-    // Initial cycle after 2s warm-up
-    setTimeout(() => {
-        runScheduledCycle();
-    }, 2000);
-
-    monitorInterval = setInterval(runScheduledCycle, intervalMs);
+    console.log("ℹ️ Autonomous background monitoring loop is DISABLED (ON-DEMAND architecture active).");
+    console.log("ℹ️ Zero RailRadar requests will be made while the application has no active users.");
+    console.log(`⚡ On-demand cache TTL: ${TIMING_CONFIG.FORECAST_CACHE_TTL_MS / 1000}s | Adaptive refresh: ${TIMING_CONFIG.APPROACHING_REFRESH_INTERVAL_MS / 1000}s (active) / ${TIMING_CONFIG.NORMAL_REFRESH_INTERVAL_MS / 1000}s (quiet).`);
 }
 
 /* ============================================================
@@ -472,16 +474,18 @@ function startBackgroundMonitor() {
 
 const server = http.createServer(handleRequest);
 
-server.listen(PORT, () => {
-    console.log(`\n==================================================`);
-    console.log(`   FATAKFORECAST PRODUCTION SERVER RUNNING`);
-    console.log(`   URL: http://localhost:${PORT}`);
-    console.log(`   Frontend: ${FRONTEND_DIR}`);
-    console.log(`   Forecast Horizon: ${TIMING_CONFIG.FORECAST_HORIZON_MINUTES} minutes`);
-    console.log(`==================================================\n`);
+if (require.main === module) {
+    server.listen(PORT, () => {
+        console.log(`\n==================================================`);
+        console.log(`   FATAKFORECAST PRODUCTION SERVER RUNNING`);
+        console.log(`   URL: http://localhost:${PORT}`);
+        console.log(`   Frontend: ${FRONTEND_DIR}`);
+        console.log(`   Forecast Horizon: ${TIMING_CONFIG.FORECAST_HORIZON_MINUTES} minutes`);
+        console.log(`==================================================\n`);
 
-    startBackgroundMonitor();
-});
+        startBackgroundMonitor();
+    });
+}
 
 function gracefulShutdown(signal) {
     console.log(`\n🛑 Received ${signal}. Gracefully shutting down FatakForecast server...`);

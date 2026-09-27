@@ -9,8 +9,11 @@
 
 const API_BASE_URL = window.FATAK_API_BASE_URL || window.location.origin;
 
-const REFRESH_INTERVAL_MS = 30 * 1000; // 30 seconds API poll
-const TICK_INTERVAL_MS = 1000;         // 1 second smooth countdown tick
+// Active-session adaptive refresh intervals (Quota & Session Protection)
+const NORMAL_REFRESH_INTERVAL_MS = 120 * 1000;       // 120s (2 min) when corridor is quiet
+const APPROACHING_REFRESH_INTERVAL_MS = 45 * 1000;   // 45s when a train is approaching/closed
+let currentRefreshIntervalMs = NORMAL_REFRESH_INTERVAL_MS;
+const TICK_INTERVAL_MS = 1000;                       // 1 second smooth countdown tick
 
 // Corridor layout definition (MOW -> JNL)
 const CORRIDOR_CROSSINGS = [
@@ -154,8 +157,45 @@ function loadCachedSnapshot() {
 }
 
 /* =========================================================
-   INITIALIZATION
+   INITIALIZATION & ADAPTIVE REFRESH CONTROLLER
 ========================================================= */
+
+function scheduleAdaptiveRefresh(intervalMs) {
+    if (refreshTimer) {
+        clearTimeout(refreshTimer);
+        refreshTimer = null;
+    }
+
+    currentRefreshIntervalMs = intervalMs || NORMAL_REFRESH_INTERVAL_MS;
+
+    // Do NOT schedule refresh when page/tab is hidden or backgrounded
+    if (document.visibilityState === "hidden") {
+        console.log("⏸️ Page hidden — pausing background forecast refresh.");
+        return;
+    }
+
+    console.log(`⏱️ Adaptive refresh scheduled in ${Math.round(currentRefreshIntervalMs / 1000)}s (${currentRefreshIntervalMs === APPROACHING_REFRESH_INTERVAL_MS ? "active approaching train" : "quiet corridor"}).`);
+
+    refreshTimer = setTimeout(() => {
+        if (document.visibilityState === "visible") {
+            fetchForecast();
+        }
+    }, currentRefreshIntervalMs);
+}
+
+// Page Visibility API: Stop refresh when hidden; immediately refresh when visible
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+        console.log("⏸️ Tab hidden / minimized — stopping all RailRadar refresh requests.");
+        if (refreshTimer) {
+            clearTimeout(refreshTimer);
+            refreshTimer = null;
+        }
+    } else if (document.visibilityState === "visible") {
+        console.log("▶️ Tab became visible — resuming active session with immediate forecast fetch.");
+        fetchForecast();
+    }
+});
 
 document.addEventListener("DOMContentLoaded", () => {
     initSplashScreen();
@@ -163,10 +203,7 @@ document.addEventListener("DOMContentLoaded", () => {
     buildTrackNodes();
     fetchForecast();
 
-    // Regular polling for fresh train positions
-    refreshTimer = setInterval(() => fetchForecast(), REFRESH_INTERVAL_MS);
-
-    // 1-second interval for smooth countdowns and live telemetry age
+    // 1-second interval for smooth countdowns and live telemetry age (strictly local, zero network calls)
     liveRenderTimer = setInterval(() => {
     updateTelemetryAge();
 
@@ -193,7 +230,7 @@ if (manualRefresh) {
 }
 
 /* =========================================================
-   DATA FETCHING
+   DATA FETCHING (On-Demand User Triggered)
 ========================================================= */
 
 async function fetchForecast(showToast = false, isRetry = false) {
@@ -207,7 +244,8 @@ async function fetchForecast(showToast = false, isRetry = false) {
     setSystemStatus(dataSource === "LIVE" ? "UPDATING..." : "CONNECTING...", "active");
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/forecast`, {
+        const fetchUrl = showToast ? `${API_BASE_URL}/api/forecast?refresh=true` : `${API_BASE_URL}/api/forecast`;
+        const response = await fetch(fetchUrl, {
             method: "GET",
             headers: { "Accept": "application/json" },
             cache: "no-store",
@@ -286,6 +324,10 @@ async function fetchForecast(showToast = false, isRetry = false) {
         if (showToast) {
             showToastPopup(data.freshness === "UNAVAILABLE" ? "Live railway telemetry unavailable" : "Forecast updated successfully");
         }
+
+        // Adaptive refresh: schedule next cycle based on approaching trains (45s) vs quiet (120s)
+        const nextInterval = data.refreshIntervalMs || (data.isTrainApproaching ? APPROACHING_REFRESH_INTERVAL_MS : NORMAL_REFRESH_INTERVAL_MS);
+        scheduleAdaptiveRefresh(nextInterval);
     } catch (err) {
         if (err.name === "AbortError") {
             return; // Superseded by a newer request
@@ -329,6 +371,11 @@ async function fetchForecast(showToast = false, isRetry = false) {
             renderCrossingSelector();
             renderAllCrossings();
             updateTrackVisualizer();
+        }
+
+        // Controlled error recovery: schedule next attempt at normal interval
+        if (!isRetry) {
+            scheduleAdaptiveRefresh(NORMAL_REFRESH_INTERVAL_MS);
         }
     } finally {
         isFetching = false;

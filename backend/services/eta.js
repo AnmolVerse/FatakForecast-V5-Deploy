@@ -23,8 +23,8 @@ const MIN_TRUSTWORTHY_LIVE_SPEED_KMPH = 15;
 
 const STATION_NEAR_TOLERANCE_KM = 0.35;
 
-// Do not trust a station timestamp that is too far into the future.
-const MAX_FUTURE_ANCHOR_MINUTES = 30;
+// Do not trust a station timestamp that is too far into the future (up to 120m for extended outlook).
+const MAX_FUTURE_ANCHOR_MINUTES = 120;
 
 // Small tolerance because geometry/projection can differ by a few metres.
 const PHYSICAL_SANITY_TOLERANCE = 0.90;
@@ -530,8 +530,10 @@ function getPositionTimestamp(trainPosition, live) {
         trainPosition?.updatedAt,
         trainPosition?.observedAt,
         trainPosition?.time,
+        live?.currentLocation?.lastUpdatedAt,
         live?.currentLocation?.timestamp,
         live?.currentLocation?.updatedAt,
+        live?.lastUpdatedAt,
         live?.timestamp,
         live?.updatedAt
     ];
@@ -916,7 +918,7 @@ function getStationAnchorTime(station, live = null) {
     for (const value of scheduledCandidates) {
         const date = normalizeDate(value);
         if (date) {
-            if (Number.isFinite(delayMinutes) && delayMinutes > 0) {
+            if (Number.isFinite(delayMinutes) && delayMinutes !== 0) {
                 return new Date(date.getTime() + delayMinutes * 60000);
             }
             return date;
@@ -2293,6 +2295,71 @@ function getETAMinutes(
 }
 
 // -----------------------------------------------------------------------------
+// Schedule baseline and early/late classification
+// -----------------------------------------------------------------------------
+
+function deriveScheduledPassage({
+    estimatedPassageTime,
+    delayMinutes,
+    scheduledStationTime,
+    transitMinutes = 0
+} = {}) {
+    if (estimatedPassageTime && Number.isFinite(Number(delayMinutes))) {
+        const estDate = normalizeDate(estimatedPassageTime);
+        if (estDate) {
+            return new Date(estDate.getTime() - Number(delayMinutes) * 60000);
+        }
+    }
+    if (scheduledStationTime) {
+        const schedDate = normalizeDate(scheduledStationTime);
+        if (schedDate) {
+            return new Date(schedDate.getTime() + Number(transitMinutes || 0) * 60000);
+        }
+    }
+    return null;
+}
+
+function classifyEarlyLate(predictedPassageTime, scheduledPassageTime, thresholdMinutes = 1.5) {
+    if (!predictedPassageTime || !scheduledPassageTime) {
+        return {
+            status: "UNKNOWN",
+            differenceMinutes: null,
+            label: "Unknown"
+        };
+    }
+    const predDate = normalizeDate(predictedPassageTime);
+    const schedDate = normalizeDate(scheduledPassageTime);
+    if (!predDate || !schedDate) {
+        return {
+            status: "UNKNOWN",
+            differenceMinutes: null,
+            label: "Unknown"
+        };
+    }
+    const diffMinutes = (predDate.getTime() - schedDate.getTime()) / 60000;
+    const roundedDiff = Math.round(diffMinutes * 10) / 10;
+    if (diffMinutes < -thresholdMinutes) {
+        return {
+            status: "EARLY",
+            differenceMinutes: roundedDiff,
+            label: `${Math.abs(Math.round(roundedDiff))} min early`
+        };
+    }
+    if (diffMinutes > thresholdMinutes) {
+        return {
+            status: "DELAYED",
+            differenceMinutes: roundedDiff,
+            label: `+${Math.round(roundedDiff)} min delay`
+        };
+    }
+    return {
+        status: "ON_TIME",
+        differenceMinutes: roundedDiff,
+        label: "On time"
+    };
+}
+
+// -----------------------------------------------------------------------------
 // Exports
 // -----------------------------------------------------------------------------
 
@@ -2331,6 +2398,10 @@ module.exports = {
     getStationAnchorTime,
     getStationAnchorTimeType,
     isUsableAnchorTime,
+
+    // Early / Late & Baseline
+    deriveScheduledPassage,
+    classifyEarlyLate,
 
     // Physics
     getMinimumPhysicalMinutes,

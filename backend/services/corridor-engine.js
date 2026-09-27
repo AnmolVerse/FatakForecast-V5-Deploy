@@ -648,7 +648,7 @@ function getArrivalTime(train = {}) {
 
     const delay = getDelayMinutes(train);
 
-    if (scheduled && delay != null && delay > 0) {
+    if (scheduled && delay != null && delay !== 0) {
         const scheduledMs = parseDateMs(scheduled);
         if (Number.isFinite(scheduledMs)) {
             return new Date(scheduledMs + delay * 60000).toISOString();
@@ -705,7 +705,7 @@ function getDepartureTime(train = {}) {
 
     const delay = getDelayMinutes(train);
 
-    if (scheduled && delay != null && delay > 0) {
+    if (scheduled && delay != null && delay !== 0) {
         const scheduledMs = parseDateMs(scheduled);
         if (Number.isFinite(scheduledMs)) {
             return new Date(scheduledMs + delay * 60000).toISOString();
@@ -1841,7 +1841,7 @@ if (isNotStarted) {
     }
 
     let delayedDepartureMs = rawMs;
-    if (!explicitDepartureRaw && Number.isFinite(delayMinutes) && delayMinutes > 0) {
+    if (!explicitDepartureRaw && Number.isFinite(delayMinutes) && delayMinutes !== 0) {
         delayedDepartureMs += delayMinutes * 60000;
     }
 
@@ -1885,12 +1885,26 @@ if (isNotStarted) {
         return null;
     }
 
+    const scheduledPassageMs = rawMs + (travelMinutes * 60000);
+    const scheduledPassageTime = new Date(scheduledPassageMs).toISOString();
+    const diffMinutes = (passage.getTime() - scheduledPassageMs) / 60000;
+    let earlyLateStatus = "ON_TIME";
+    if (diffMinutes < -1.5) earlyLateStatus = "EARLY";
+    else if (diffMinutes > 1.5) earlyLateStatus = "DELAYED";
+
     return {
 
         etaMinutes,
 
         estimatedPassageTime:
             passage.toISOString(),
+
+        scheduledPassageTime,
+
+        earlyLateStatus,
+
+        earlyLateMinutes:
+            Math.round(diffMinutes * 10) / 10,
 
         distanceKm,
 

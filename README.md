@@ -188,6 +188,20 @@ python ml/inference/predict.py --crossing jandiala --direction forward --speed 6
 
 ---
 
-## 6. License & Safety Disclaimer
+## 6. On-Demand Deployment Architecture
+
+FatakForecast uses on-demand RailRadar fetching. No RailRadar requests are made while the application has no active users. When the application is open, the frontend requests forecasts through the backend using quota-aware caching and adaptive refresh intervals.
+
+- **Zero Inactive Polling**: When no users are viewing the application, zero background requests exit the server process.
+- **Quota Protection (1,000 req/week)**: Server-side cache (TTL: 60s) ensures rapid requests and multiple simultaneous clients reuse cached snapshots with 0 RailRadar calls.
+- **In-Flight Deduplication**: Concurrent requests during an active RailRadar cycle share a single in-flight Promise.
+- **Adaptive Active-Session Refresh**: 
+  - **Quiet Corridor**: Refreshes every 120 seconds.
+  - **Approaching Train ($\le 20$ min) / Closed Gate**: Refreshes every 45 seconds.
+  - **Page Hidden / Minimized**: All network requests stop completely via the Page Visibility API (`document.visibilityState`).
+
+---
+
+## 7. License & Safety Disclaimer
 
 FatakForecast is designed for informational and situational awareness purposes. Gate predictions assist local road users in planning travel and avoiding blocked level crossings. It does not replace physical railway signaling, boom barrier interlocking, or on-site gateman authority.

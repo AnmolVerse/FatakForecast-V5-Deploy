@@ -137,7 +137,19 @@ const TIMING_CONFIG = {
 
     // Cache TTLs
     LIVE_TRAIN_CACHE_TTL_MS: 20 * 1000,               // 20 seconds
-    ROUTE_CACHE_TTL_MS: 24 * 60 * 60 * 1000           // 24 hours
+    ROUTE_CACHE_TTL_MS: 24 * 60 * 60 * 1000,          // 24 hours
+
+    // On-demand user-triggered forecast configuration (Quota & Session Protection)
+    FORECAST_CACHE_TTL_MS: process.env.FORECAST_CACHE_TTL_MS
+        ? parseInt(process.env.FORECAST_CACHE_TTL_MS, 10)
+        : 60 * 1000,          // 60 seconds server-side forecast cache
+    NORMAL_REFRESH_INTERVAL_MS: process.env.NORMAL_REFRESH_INTERVAL_MS
+        ? parseInt(process.env.NORMAL_REFRESH_INTERVAL_MS, 10)
+        : 120 * 1000,         // 120 seconds (2 min) when corridor is quiet
+    APPROACHING_REFRESH_INTERVAL_MS: process.env.APPROACHING_REFRESH_INTERVAL_MS
+        ? parseInt(process.env.APPROACHING_REFRESH_INTERVAL_MS, 10)
+        : 45 * 1000,          // 45 seconds when a train is approaching
+    INACTIVE_SESSION_TIMEOUT_MS: 5 * 60 * 1000 // 5 minutes
 };
 
 module.exports = {
