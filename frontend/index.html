@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#07090e">
+    <meta name="description" content="FatakForecast — Know before you go. Predictive railway level crossing decision support for the Jandiala-Mananwala corridor.">
+<link rel="icon" type="image/png" href="/FATAKLOGO.png">
+<link rel="apple-touch-icon" href="/FATAKLOGO.png">
+    <title>FatakForecast — Know Before You Go</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Opening Splash Animation (Mobile-First Railway Experience) -->
+    <div id="splash-screen" class="splash-screen" role="dialog" aria-label="FatakForecast Loading" aria-modal="true">
+        <div class="splash-ambient-glow" aria-hidden="true"></div>
+        <div class="splash-content">
+            <!-- Animated Railway Track & Train Scene -->
+            <div class="splash-railway-stage" aria-hidden="true">
+                <div class="splash-rail-line"></div>
+                <div class="splash-rail-ties"></div>
+                <div class="splash-train-silhouette">
+                    <svg viewBox="0 0 130 42" fill="none" xmlns="http://www.w3.org/2000/svg" class="train-svg">
+                        <path d="M10 28 L105 28 Q125 28 128 20 Q125 12 100 12 L10 12 Z" fill="#38bdf8"/>
+                        <path d="M80 14 L100 14 Q112 14 115 19 L80 19 Z" fill="#07090e"/>
+                        <rect x="52" y="14" width="20" height="6" rx="1" fill="#07090e"/>
+                        <rect x="24" y="14" width="20" height="6" rx="1" fill="#07090e"/>
+                        <circle cx="120" cy="22" r="3.5" fill="#fef08a" class="train-headlight"/>
+                        <circle cx="30" cy="30" r="4.5" fill="#64748b"/>
+                        <circle cx="60" cy="30" r="4.5" fill="#64748b"/>
+                        <circle cx="95" cy="30" r="4.5" fill="#64748b"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Staggered Letter Cards -->
+            <div class="splash-brand-title">
+                <div class="letter-group letter-group-fatak" aria-label="FATAK">
+                    <span class="letter-tile" style="--i: 0;">F</span>
+                    <span class="letter-tile" style="--i: 1;">A</span>
+                    <span class="letter-tile" style="--i: 2;">T</span>
+                    <span class="letter-tile" style="--i: 3;">A</span>
+                    <span class="letter-tile" style="--i: 4;">K</span>
+                </div>
+                <div class="letter-group letter-group-forecast" aria-label="FORECAST">
+                    <span class="letter-tile accent-tile" style="--i: 5;">F</span>
+                    <span class="letter-tile accent-tile" style="--i: 6;">O</span>
+                    <span class="letter-tile accent-tile" style="--i: 7;">R</span>
+                    <span class="letter-tile accent-tile" style="--i: 8;">E</span>
+                    <span class="letter-tile accent-tile" style="--i: 9;">C</span>
+                    <span class="letter-tile accent-tile" style="--i: 10;">A</span>
+                    <span class="letter-tile accent-tile" style="--i: 11;">S</span>
+                    <span class="letter-tile accent-tile" style="--i: 12;">T</span>
+                </div>
+            </div>
+
+            <!-- Tagline -->
+            <p class="splash-tagline">KNOW BEFORE YOU GO.</p>
+            <span class="splash-skip-hint">Tap anywhere to skip</span>
+        </div>
+    </div>
+
+    <!-- Ambient Visual Elements -->
+    <div class="ambient-glow glow-top" aria-hidden="true"></div>
+    <div class="ambient-glow glow-bottom" aria-hidden="true"></div>
+    <div class="noise-overlay" aria-hidden="true"></div>
+
+    <!-- Application Shell -->
+    <div class="app-shell">
+
+        <!-- Top Navigation -->
+        <header class="app-nav" role="banner">
+            <div class="nav-container">
+                <a href="#" class="brand-group" aria-label="FatakForecast home">
+                    <div class="brand-icon">
+                        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <line x1="6" y1="26" x2="26" y2="6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                            <line x1="6" y1="6" x2="26" y2="26" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                            <line x1="16" y1="4" x2="16" y2="28" stroke="currentColor" stroke-width="2" stroke-dasharray="2 3"/>
+                            <circle cx="16" cy="16" r="4" fill="currentColor"/>
+                        </svg>
+                    </div>
+                    <div class="brand-text">
+                        <span class="brand-name">Fatak<strong>Forecast</strong></span>
+                        <span class="brand-tagline">Know before you go</span>
+                    </div>
+                </a>
+
+                <div class="nav-actions">
+                    <div class="telemetry-badge" id="system-status" role="status" aria-live="polite">
+                        <span class="status-beacon" aria-hidden="true"></span>
+                        <span id="system-status-text">LIVE RAIL DATA</span>
+                    </div>
+
+                    <button class="icon-btn refresh-btn" id="manual-refresh" aria-label="Refresh live railway forecast" title="Refresh live railway forecast">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M4 12a8 8 0 0 1 14.93-4M20 12a8 8 0 0 1-14.93 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            <path d="M20 4v4h-4M4 20v-4h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="app-main" role="main">
+
+            <!-- Hero & Crossing Control -->
+            <section class="forecast-section" aria-labelledby="section-heading">
+                <div class="section-header">
+                    <div>
+                        <div class="eyebrow-pill">CORRIDOR INTELLIGENCE</div>
+                        <h1 id="section-heading" class="sr-only">Railway Crossing Forecast</h1>
+                    </div>
+                    <div class="updated-indicator" id="updated-indicator">
+                        <span class="pulse-dot" aria-hidden="true"></span>
+                        <span id="updated-time">Checking train movements...</span>
+                    </div>
+                </div>
+
+                <!-- Cold Start / Offline Cache Banner -->
+                <div id="cold-start-banner" class="cold-start-banner" style="display: none;" role="status">
+                    <span class="action-icon">⏳</span>
+                    <span id="cold-start-text">Connecting to live railway data...</span>
+                </div>
+
+                <!-- Crossing Switcher Pills (Thumb-friendly segmented control) -->
+                <nav class="crossing-switcher" id="crossing-selector" aria-label="Select railway crossing">
+                    <!-- Populated dynamically by app.js -->
+                    <div class="skeleton-pill"></div>
+                    <div class="skeleton-pill"></div>
+                    <div class="skeleton-pill"></div>
+                    <div class="skeleton-pill"></div>
+                </nav>
+
+                <!-- Primary Forecast Card (Hero Decision Unit) -->
+                <div class="primary-forecast-container" id="main-forecast" aria-live="polite">
+                    <!-- Dynamic state rendered by app.js -->
+                    <div class="forecast-card loading-card">
+                        <div class="loading-spinner" aria-hidden="true"></div>
+                        <p class="loading-text">Connecting to railway telemetry...</p>
+                    </div>
+                </div>
+
+                <!-- Last Train Passed (Historical Context) -->
+                <div class="last-train-passed-container" id="last-train-passed-container" aria-live="polite">
+                    <!-- Populated dynamically by app.js -->
+                </div>
+
+                <!-- Extended 2-Hour Outlook (60–120 min horizon) -->
+                <div class="extended-outlook-section" id="extended-outlook-section" aria-live="polite">
+                    <!-- Populated dynamically by app.js -->
+                </div>
+            </section>
+
+            <!-- Interactive Corridor Track Visualizer -->
+            <section class="track-section" aria-labelledby="track-heading">
+                <div class="section-title-bar">
+                    <div>
+                        <span class="sub-kicker">SPATIAL TRACK ALIGNMENT</span>
+                        <h2 id="track-heading" class="section-title">Corridor Schematics</h2>
+                    </div>
+                    <div class="corridor-limits">
+                        <span class="station-code">MOW</span>
+                        <span class="corridor-arrow" aria-hidden="true">⇄</span>
+                        <span class="station-code">JNL</span>
+                    </div>
+                </div>
+
+                <div class="track-visualizer-card" id="track-visualizer">
+                    <div class="track-header-info">
+                        <span class="track-direction-label" id="track-direction-text">Bi-directional Northern Railway Line</span>
+                        <span class="track-distance-label" id="track-distance-text">4 level crossings mapped</span>
+                    </div>
+
+                    <!-- Schematic Track Line -->
+                    <div class="track-schematic-wrap" id="track-schematic">
+                        <div class="rail-line-bg"></div>
+                        <div class="rail-ties" aria-hidden="true"></div>
+
+                        <!-- Crossings on Line -->
+                        <div class="crossing-nodes" id="crossing-nodes">
+                            <!-- Populated dynamically by app.js -->
+                        </div>
+
+                        <!-- Live Train Marker on Track -->
+                        <div class="live-train-marker" id="live-train-marker" style="display: none;" aria-hidden="true">
+                            <div class="train-pin">
+                                <span class="train-pin-icon">🚆</span>
+                                <span class="train-pin-label" id="train-pin-label">--</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="track-legend">
+                        <span class="legend-item"><span class="legend-dot active-dot"></span> Selected Crossing</span>
+                        <span class="legend-item"><span class="legend-dot open-dot"></span> Expected Open</span>
+                        <span class="legend-item"><span class="legend-dot closing-dot"></span> Train Approaching</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Secondary Movements / Multi-Train Queue -->
+            <section class="upcoming-queue-section" id="upcoming-queue-container" style="display: none;" aria-labelledby="queue-heading">
+                <div class="section-title-bar">
+                    <div>
+                        <span class="sub-kicker">CONSECUTIVE MOVEMENTS</span>
+                        <h2 id="queue-heading" class="section-title">Subsequent Trains (60 min)</h2>
+                    </div>
+                </div>
+                <div class="queue-card-grid" id="upcoming-queue-grid">
+                    <!-- Injected when multiple trains are detected -->
+                </div>
+            </section>
+
+            <!-- All 4 Crossings Overview Grid -->
+            <section class="corridor-grid-section" aria-labelledby="all-crossings-heading">
+                <div class="section-title-bar">
+                    <div>
+                        <span class="sub-kicker">CORRIDOR OVERVIEW</span>
+                        <h2 id="all-crossings-heading" class="section-title">All V1 Crossings</h2>
+                    </div>
+                    <span class="sub-caption">Tap any crossing to inspect</span>
+                </div>
+
+                <div class="crossings-overview-grid" id="crossings-grid">
+                    <!-- Populated dynamically by app.js -->
+                </div>
+            </section>
+
+            <!-- System Transparency & Model Trust -->
+            <section class="trust-section" aria-labelledby="trust-heading">
+                <div class="trust-card">
+                    <div class="trust-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            <path d="m9 12 2 2 4-4"/>
+                        </svg>
+                    </div>
+                    <div class="trust-content">
+                        <h3 id="trust-heading">Predictive Model Disclosure</h3>
+                        <p>
+                            FatakForecast is a decision-support system calculating arrival windows from verified 
+                            <strong>RailRadar live telemetry</strong> and sequence-aware <strong>GeoJSON track geometry</strong>. 
+                            There are <em>no physical sensors</em> deployed at the gates. Status indicates statistical expectations. 
+                            <strong>Always obey physical railway signals, barriers, and sirens at the crossing.</strong>
+                        </p>
+                        <div class="trust-tags">
+                            <span class="trust-tag">No Sensor Pretence</span>
+                            <span class="trust-tag">Turf.js Route Projection</span>
+                            <span class="trust-tag">11-Minute Initial Baseline</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- App Footer -->
+        <footer class="app-footer" role="contentinfo">
+            <div class="footer-container">
+                <div class="footer-brand">
+                    <span class="footer-logo">FatakForecast V5</span>
+                    <p class="footer-desc">Jandiala Guru (JNL) — Mananwala (MOW) Corridor</p>
+                </div>
+                <div class="footer-copy">
+                    <span>Designed for Commuters, Students & Local Transit</span>
+                    <span>Safety First • Never Cross a Closed Gate</span>
+                </div>
+            </div>
+        </footer>
+
+        <!-- Toast Notifications -->
+        <div class="toast-container" id="toast" role="alert" aria-live="assertive" aria-hidden="true">
+            <span class="toast-dot"></span>
+            <span class="toast-text" id="toast-message">Forecast updated</span>
+        </div>
+
+    </div>
+
+    <!-- Application Script -->
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+{
+  "name": "fatakforecast-backend",
+  "version": "1.1.0",
+  "description": "Backend API and railway crossing prediction engine for FatakForecast",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "server": "node server.js",
+    "monitor": "node services/monitor.js",
+    "test": "node test-railradar.js",
+    "test:live": "node test-railradar.js",
+    "test:eta": "node test-eta.js",
+    "check": "node preflight.js",
+    "test:master": "node test-master-suite.js",
+    "test:timeline": "node test-timeline-suite.js",
+    "test:stability": "node test-stability-suite.js",
+    "test:ml": "node test-ml-closure-model.js",
+    "test:extended": "node test-v5-extended-suite.js",
+    "test:offline": "node test-eta.js && node test-closure-timing.js && node test-closure-predictor.js && node test-event-matcher.js && node test-geometry-v4.js && node test-timeline-suite.js && node test-master-suite.js && node test-stability-suite.js && node test-ml-closure-model.js && node test-v5-extended-suite.js"
+  },
+  "keywords": [
+    "railway",
+    "railradar",
+    "level-crossing",
+    "prediction",
+    "fatakforecast"
+  ],
+  "author": "Anmol Singh",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@turf/turf": "^7.4.0",
+    "axios": "^1.20.0",
+    "dotenv": "^17.4.2"
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FatakForecastDatasetSchema",
+  "description": "Schema for verified railway crossing gate observation events and training samples",
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "description": "Unique identifier for the observed crossing passage event"
+    },
+    "crossing_id": {
+      "type": "string",
+      "enum": [
+        "talwandi-dogran",
+        "manawala-road",
+        "rakh-devi-dasspura",
+        "jandiala"
+      ]
+    },
+    "train_number": {
+      "type": ["string", "null"]
+    },
+    "direction": {
+      "type": "string",
+      "enum": ["forward", "backward"]
+    },
+    "actual_train_passage_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "actual_gate_close_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "actual_gate_open_time": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "closure_lead_time_minutes": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 30,
+      "description": "Minutes between gate closure and train passage (Passage - Close)"
+    },
+    "closure_duration_minutes": {
+      "type": ["number", "null"],
+      "minimum": 0.5,
+      "maximum": 35.0,
+      "description": "Minutes between gate closure and gate opening (Open - Close)"
+    },
+    "speed_kmh": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 180
+    },
+    "delay_minutes": {
+      "type": ["number", "null"],
+      "minimum": -60,
+      "maximum": 1440
+    },
+    "verification_status": {
+      "type": "string",
+      "enum": ["REPORTED", "VERIFIED", "REJECTED"]
+    },
+    "source": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "crossing_id",
+    "direction",
+    "actual_train_passage_time",
+    "actual_gate_close_time",
+    "closure_lead_time_minutes",
+    "verification_status"
+  ]
+}

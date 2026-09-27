@@ -1,0 +1,8 @@
+{
+  "status": "INSUFFICIENT_SAMPLES",
+  "samples": 0,
+  "min_required": 20,
+  "reason": "Insufficient verified samples (0 < 20). Prior dynamic baseline remains active.",
+  "promoted": false,
+  "baseline_active": true
+}
