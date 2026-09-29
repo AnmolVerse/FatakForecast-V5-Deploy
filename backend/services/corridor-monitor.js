@@ -163,11 +163,21 @@ function isTrainCancelled(live) {
     if (!live) return false;
 
     const status = getTrainStatus(live);
-    if (status === "cancelled" || status === "canceled") {
+    if (
+        status === "cancelled" ||
+        status === "canceled" ||
+        status === "diverted" ||
+        status === "partially-cancelled" ||
+        status === "partially_cancelled"
+    ) {
         return true;
     }
 
-    if (live.isCancelled === true) {
+    if (
+        live.isCancelled === true ||
+        live.isDiverted === true ||
+        live.isPartiallyCancelled === true
+    ) {
         return true;
     }
 
@@ -175,7 +185,12 @@ function isTrainCancelled(live) {
         for (const ex of live.exceptions) {
             const exType = String(ex?.type || "").toUpperCase().trim();
             const exMsg = String(ex?.message || "").toLowerCase();
-            if (exType.includes("CANCEL") || exMsg.includes("cancel")) {
+            if (
+                exType.includes("CANCEL") ||
+                exMsg.includes("cancel") ||
+                exType.includes("DIVERT") ||
+                exMsg.includes("divert")
+            ) {
                 return true;
             }
         }
@@ -599,16 +614,22 @@ function makeDirectionResult(dir, source, exited = false) {
     return s;
 }
 
-function inferDirectionFromRoute(input) {
+function inferDirectionFromRoute(input, trainPosArg = null, prevPosArg = null) {
     const live = Array.isArray(input) ? { route: input } : (input?.live || input);
-    const trainPositionKm = input?.trainPositionKm;
-    const previousPositionKm = input?.previousPositionKm;
+    const trainPositionKm = input?.trainPositionKm ?? (trainPosArg?.positionKm ?? trainPosArg?.km ?? (typeof trainPosArg === "number" ? trainPosArg : null));
+    const previousPositionKm = input?.previousPositionKm ?? (prevPosArg?.positionKm ?? prevPosArg?.km ?? (typeof prevPosArg === "number" ? prevPosArg : null));
     const observedMovement = input?.observedMovement;
 
     const route =
-        Array.isArray(live?.route)
-            ? live.route
-            : (Array.isArray(input) ? input : []);
+        Array.isArray(live?.route?.stations)
+            ? live.route.stations
+            : (Array.isArray(live?.route)
+                ? live.route
+                : (Array.isArray(live?.data?.route?.stations)
+                    ? live.data.route.stations
+                    : (Array.isArray(live?.data?.route)
+                        ? live.data.route
+                        : (Array.isArray(input) ? input : []))));
 
     const currentSequence =
         Number(
@@ -845,13 +866,13 @@ function buildCrossingResult(
     const isReverse = direction === "backward" || direction === "reverse" || observedMovement === "backward" || observedMovement === "reverse";
     let distanceKm;
 
-    if (isReverse) {
-        // Reverse (Jandiala -> Amritsar): crossing is ahead if crossingPosition < trainPosition
+    if (isReverse && trainPosition > crossingPosition && crossingPosition < 30 && trainPosition < 30) {
+        // Reverse synthetic corridor frame (crossing is ahead if crossingPosition < trainPosition)
         distanceKm =
             trainPosition -
             crossingPosition;
     } else {
-        // Forward (Amritsar -> Jandiala): crossing is ahead if crossingPosition > trainPosition
+        // Authoritative route-geometry frame (train travels forward along its route GeoJSON)
         distanceKm =
             crossingPosition -
             trainPosition;
@@ -1081,6 +1102,12 @@ if (trainNotStarted) {
 
             trainPositionKm:
                 trainPosition,
+
+            distanceKm:
+                crossing.distanceKm,
+
+            crossingDistanceKm:
+                crossing.distanceKm,
 
             direction,
 
@@ -2408,6 +2435,8 @@ module.exports = {
     getTrainSpeed,
 
     inferDirectionFromRoute,
+
+    inferTrainDirection: inferDirectionFromRoute,
 
     isTrainCancelled,
 

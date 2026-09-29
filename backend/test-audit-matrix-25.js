@@ -8,6 +8,7 @@ const assert = require("assert");
 const {
     buildUnifiedSnapshot,
     getActiveSnapshot,
+    saveSnapshot,
     computeCombinedClosureTimeline,
     determineCrossingStatus
 } = require("./services/forecast-snapshot");
@@ -113,6 +114,7 @@ test("Scenario 5: Unavailable live telemetry -> LIVE_DATA_UNAVAILABLE, never OPE
         cycleTimestamp: pastTime.toISOString(),
         eventsByCrossing: {}
     });
+    saveSnapshot(snapshot, false);
 
     // Simulate getActiveSnapshot at baseNow
     const active = getActiveSnapshot(baseNow.getTime());

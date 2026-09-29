@@ -919,19 +919,28 @@ function getCrossingRouteDistance(
         );
 
 
-    const liveStart =
+    let liveStart =
         findRouteStation(
             liveRouteStations,
             startStationCode
         );
 
+    if (!liveStart && startStationCode === "JNL") {
+        liveStart = findRouteStation(liveRouteStations, "BEAS") ||
+                    findRouteStation(liveRouteStations, "JUC") ||
+                    findRouteStation(liveRouteStations, "ASR");
+    }
 
-    const liveEnd =
+    let liveEnd =
         findRouteStation(
             liveRouteStations,
             endStationCode
         );
 
+    if (!liveEnd && endStationCode === "MOW") {
+        liveEnd = findRouteStation(liveRouteStations, "ASR") ||
+                  findRouteStation(liveRouteStations, "JNL");
+    }
 
     if (
         !liveStart ||

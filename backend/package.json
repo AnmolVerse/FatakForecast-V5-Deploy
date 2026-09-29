@@ -18,7 +18,9 @@
     "test:extended": "node test-v5-extended-suite.js",
     "test:ondemand": "node test-on-demand-architecture.js",
     "test:early": "node test-early-train-prediction.js",
-    "test:offline": "node test-eta.js && node test-closure-timing.js && node test-closure-predictor.js && node test-event-matcher.js && node test-geometry-v4.js && node test-timeline-suite.js && node test-master-suite.js && node test-stability-suite.js && node test-ml-closure-model.js && node test-v5-extended-suite.js && node test-on-demand-architecture.js && node test-early-train-prediction.js"
+    "test:hardening": "node test-v5-hardening-suite.js",
+    "test:bidirectional": "node test-bidirectional-acceptance.js",
+    "test:offline": "node test-eta.js && node test-closure-timing.js && node test-closure-predictor.js && node test-event-matcher.js && node test-geometry-v4.js && node test-timeline-suite.js && node test-master-suite.js && node test-stability-suite.js && node test-ml-closure-model.js && node test-v5-extended-suite.js && node test-on-demand-architecture.js && node test-early-train-prediction.js && node test-v5-hardening-suite.js && node test-bidirectional-acceptance.js"
   },
   "keywords": [
     "railway",

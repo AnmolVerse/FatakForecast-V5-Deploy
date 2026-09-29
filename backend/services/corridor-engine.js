@@ -3661,15 +3661,19 @@ function validateTrainTimeline(
                 }
             }
 
-            // Backward = decreasing route position
+            // Backward = physical order towards Amritsar.
+            // In route-distance coordinates from train origin, route distance increases along travel direction (current >= previous).
+            // In fixed corridor coordinates from Amritsar (0km), corridor distance decreases toward Amritsar (current <= previous).
             if (
                 normalizedDirection ===
                 "backward"
             ) {
+                const isDecreasingCorridor = (current - 0.001 <= previous);
+                const isIncreasingRoute = (current + 0.001 >= previous);
 
                 if (
-                    current - 0.001 >
-                    previous
+                    !isDecreasingCorridor &&
+                    !isIncreasingRoute
                 ) {
 
                     return {
@@ -3732,57 +3736,36 @@ function buildTrainTimeline(
         );
 
     // --------------------------------------------------------
-    // BEST CASE:
-    // Sort by actual railway position.
+    // Strictly chronological & physical ordering:
+    // 1. Primary: estimated passage time (time never flows backward for a single train)
+    // 2. Secondary: distance to crossing ahead (nearest crossing first)
+    // 3. Tertiary: directional physical crossing sequence
     // --------------------------------------------------------
 
-    if (
-        hasAllPositions &&
-        direction
-    ) {
+    timeline.sort((a, b) => {
+        const timeA = parseDateMs(a.estimatedPassageTime);
+        const timeB = parseDateMs(b.estimatedPassageTime);
+        if (Number.isFinite(timeA) && Number.isFinite(timeB) && timeA !== timeB) {
+            return timeA - timeB;
+        }
 
-        timeline.sort(
-            (a, b) => {
+        const distA = toFiniteNumber(a.distanceKm ?? a.crossingDistanceKm);
+        const distB = toFiniteNumber(b.distanceKm ?? b.crossingDistanceKm);
+        if (distA !== null && distB !== null && distA !== distB) {
+            return distA - distB;
+        }
 
-                if (
-                    direction ===
-                    "backward"
-                ) {
+        const idA = a.crossingId || a.id;
+        const idB = b.crossingId || b.id;
+        const order = (direction === "backward") ? BACKWARD_CROSSING_ORDER : FORWARD_CROSSING_ORDER;
+        const idxA = order.indexOf(idA);
+        const idxB = order.indexOf(idB);
+        if (idxA !== -1 && idxB !== -1) {
+            return idxA - idxB;
+        }
 
-                    return (
-                        b.railwayPositionKm -
-                        a.railwayPositionKm
-                    );
-                }
-
-                return (
-                    a.railwayPositionKm -
-                    b.railwayPositionKm
-                );
-            }
-        );
-
-    } else {
-
-        // ----------------------------------------------------
-        // FALLBACK:
-        // Sort by predicted passage time.
-        // ----------------------------------------------------
-
-        timeline.sort(
-            (a, b) => {
-
-                return (
-                    parseDateMs(
-                        a.estimatedPassageTime
-                    ) -
-                    parseDateMs(
-                        b.estimatedPassageTime
-                    )
-                );
-            }
-        );
-    }
+        return 0;
+    });
 
     // --------------------------------------------------------
     // Recalculate ETA from final timestamp.

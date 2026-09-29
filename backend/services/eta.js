@@ -241,18 +241,23 @@ function findRouteStationBySequence(live, trainPosition, direction = "forward") 
         return null;
     }
 
-    if (direction === "backward") {
-        const candidates = normalized.filter(
-            item => item.sequence <= currentSequence
-        );
+    // Determine sequence progression along the physical route array
+    const seqFirst = normalized[0].sequence;
+    const seqLast = normalized[normalized.length - 1].sequence;
+    const isDecreasingRoute = seqLast < seqFirst;
+
+    if (isDecreasingRoute) {
+        const candidates = [...normalized]
+            .sort((a, b) => b.sequence - a.sequence)
+            .filter(item => item.sequence <= currentSequence);
 
         if (candidates.length) {
-            return candidates[candidates.length - 1].station;
+            return candidates[0].station;
         }
     } else {
-        const candidates = normalized.filter(
-            item => item.sequence >= currentSequence
-        );
+        const candidates = [...normalized]
+            .sort((a, b) => a.sequence - b.sequence)
+            .filter(item => item.sequence >= currentSequence);
 
         if (candidates.length) {
             return candidates[0].station;
@@ -324,58 +329,37 @@ function getRouteSegmentSpeed(live, trainPosition, direction = "forward") {
         }))
         .filter(item => item.sequence !== null);
 
-    if (direction === "backward") {
-        /*
-         * BACKWARD:
-         * The train is travelling from a higher sequence
-         * toward a lower sequence.
-         *
-         * Therefore the relevant segment is:
-         *
-         * previous lower-sequence station
-         *              ↓
-         *        current station
-         *
-         * speedToNextStationKmph belongs to the lower-sequence
-         * station and represents that segment.
-         */
-        const previousStation = stationItems
-            .filter(item => item.sequence < currentSequence)
+    // Check route progression order along the route stations array
+    const seqFirst = stationItems[0].sequence;
+    const seqLast = stationItems[stationItems.length - 1].sequence;
+    const isDecreasingRoute = seqLast < seqFirst;
+
+    if (isDecreasingRoute) {
+        const currentOrNextStation = stationItems
+            .filter(item => item.sequence <= currentSequence)
             .sort((a, b) => b.sequence - a.sequence)[0];
 
-        if (previousStation) {
-            const backwardSpeed =
-                getSpeedFromStation(previousStation.station);
-
-            if (backwardSpeed !== null) {
+        if (currentOrNextStation) {
+            const speed = getSpeedFromStation(currentOrNextStation.station);
+            if (speed !== null) {
                 return {
-                    speedKmph: backwardSpeed,
-                    source: "backward-route-segment-speed",
-                    station: previousStation.station
+                    speedKmph: speed,
+                    source: "route-segment-speed",
+                    station: currentOrNextStation.station
                 };
             }
         }
     } else {
-        /*
-         * FORWARD:
-         * The relevant segment is:
-         *
-         * current station
-         *       ↓
-         * next higher-sequence station
-         */
         const currentOrNextStation = stationItems
             .filter(item => item.sequence >= currentSequence)
             .sort((a, b) => a.sequence - b.sequence)[0];
 
         if (currentOrNextStation) {
-            const forwardSpeed =
-                getSpeedFromStation(currentOrNextStation.station);
-
-            if (forwardSpeed !== null) {
+            const speed = getSpeedFromStation(currentOrNextStation.station);
+            if (speed !== null) {
                 return {
-                    speedKmph: forwardSpeed,
-                    source: "forward-route-segment-speed",
+                    speedKmph: speed,
+                    source: "route-segment-speed",
                     station: currentOrNextStation.station
                 };
             }
@@ -493,7 +477,10 @@ function getDistanceToCrossing(
     }
 
     if (dir === "backward" || dir === "reverse") {
-        return trainKm - crossingKm;
+        if (trainKm < 30 && crossingKm < 30) {
+            return trainKm - crossingKm;
+        }
+        return crossingKm - trainKm;
     }
 
     return crossingKm - trainKm;
@@ -802,13 +789,17 @@ function findStationAnchor(
 
     let candidate = null;
 
-    if (dir === "backward") {
-        const possible = sorted.filter(
-            item => item.sequence <= currentSequence
-        );
+    const seqFirst = sorted[0].sequence;
+    const seqLast = sorted[sorted.length - 1].sequence;
+    const isDecreasingRoute = seqLast < seqFirst;
+
+    if (isDecreasingRoute) {
+        const possible = [...sorted]
+            .sort((a, b) => b.sequence - a.sequence)
+            .filter(item => item.sequence <= currentSequence);
 
         if (possible.length) {
-            candidate = possible[possible.length - 1];
+            candidate = possible[0];
         }
     } else {
         const possible = sorted.filter(
@@ -1741,6 +1732,8 @@ function estimateTrainPassage({
     route = null,
     crossingPositionKm = null,
     trainPositionKm = null,
+    distanceKm = null,
+    crossingDistanceKm = null,
     fallbackSpeedKmph = null,
     livePositionFresh = false
 } = {}) {
@@ -1773,10 +1766,24 @@ function estimateTrainPassage({
             crossingPositionKm !== null &&
             crossingPositionKm !== undefined
         ) {
+            const resolvedDist = crossingDistanceKm ?? distanceKm;
             normalizedCrossing = {
                 railwayPositionKm: crossingPositionKm,
                 positionKm: crossingPositionKm,
-                routePositionKm: crossingPositionKm
+                routePositionKm: crossingPositionKm,
+                ...(resolvedDist !== null && resolvedDist !== undefined && Number.isFinite(Number(resolvedDist)) ? { distanceKm: Number(resolvedDist) } : {})
+            };
+        }
+    } else if (
+        normalizedCrossing &&
+        typeof normalizedCrossing === "object" &&
+        normalizedCrossing.distanceKm === undefined
+    ) {
+        const resolvedDist = crossingDistanceKm ?? distanceKm;
+        if (resolvedDist !== null && resolvedDist !== undefined && Number.isFinite(Number(resolvedDist))) {
+            normalizedCrossing = {
+                ...normalizedCrossing,
+                distanceKm: Number(resolvedDist)
             };
         }
     }

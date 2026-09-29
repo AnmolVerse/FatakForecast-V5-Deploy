@@ -145,12 +145,13 @@ async function runAll() {
             railwayPositionKm: 45,
             distanceKm: 10
         };
+        const testSchedDep = new Date(Date.now() + 30 * 60000).toISOString();
         const live = {
             status: "not_started",
             trainNumber: "12345",
             delayMinutes: -10,
-            scheduledDepartureTime: "2026-09-27T23:00:00.000Z",
-            route: [{ scheduledDeparture: "2026-09-27T23:00:00.000Z", speedToNextStationKmph: 60 }]
+            scheduledDepartureTime: testSchedDep,
+            route: [{ scheduledDeparture: testSchedDep, speedToNextStationKmph: 60 }]
         };
 
         // fixedNow is 22:30. Delayed departure with -10m is 22:50.
